@@ -37,9 +37,10 @@ def retrieve_info(article, zot):
     template['DOI'] = best_res["externalIds"].get("DOI", "")
     template['archive'] = best_res["externalIds"].get("ArXiv", "")
     template['archiveLocation'] = "https://arxiv.org/pdf/" + best_res["externalIds"].get("ArXiv", "") + ".pdf"
-    template['url'] = "https://arxiv.org/pdf/" + best_res["externalIds"].get("ArXiv", "") + ".pdf"
+    template['url'] = template['archiveLocation']
     if not template['archive']:
-        template['url'] = best_res["publicationVenue"].get("url", "")
+        #template['url'] = best_res["publicationVenue"].get("url", "")
+        template['url'] = best_res["url"]
 
     # best_res[publicationTypes] = ['JournalArticle', 'Conference']
     template['libraryCatalog'] = ", ".join(best_res["fieldsOfStudy"])

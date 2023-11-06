@@ -41,11 +41,14 @@ def extract_metadata_from_pdf(pdf_path, article_dict: dict):
     if os.path.exists(pdf_path):
         try:
             import PyPDF2
-            PyPDF2.PdfReader(pdf_path.as_posix())
+            pdf_path = pdf_path.as_posix()
+            PyPDF2.PdfReader(pdf_path)
         except Exception as e:
             logging.warning("Error opening " + pdf_path.as_posix() + ":" + str(e))
             return article_dict
-    
+    if not pdf_path.endswith(".pdf"):
+        return article_dict
+
     import scipdf  # pip install scipdf_parser
 
     # from .gpt_academic.crazy_functions.pdf_fns.parse_pdf import parse_pdf
@@ -59,7 +62,7 @@ def extract_metadata_from_pdf(pdf_path, article_dict: dict):
     
         # https://grobid.readthedocs.io/en/latest/training/header/
         try:
-            article = scipdf.parse_pdf(pdf_path.as_posix(), grobid_url=_grobid_url, fulltext=True, soup=True, return_coordinates=True)
+            article = scipdf.parse_pdf(pdf_path, grobid_url=_grobid_url, fulltext=True, soup=True, return_coordinates=True)
             if "[GENERAL]" in article.text and "exception" in article.text:
                 logging.debug(article_dict["title"] + ":" + article.text)
             else:
@@ -279,7 +282,8 @@ def update_by_arxiv(search, save_root, collection, zot, update_db_callback=None)
 
         # add subitems
         refs = []
-        for art in metadata["__refs"]:
+        from tqdm import tqdm
+        for art in tqdm(metadata["__refs"]):
             if not art.get("title"):
                 continue
             titles, items = query_title(result.title.lower(), zot)
@@ -289,7 +293,7 @@ def update_by_arxiv(search, save_root, collection, zot, update_db_callback=None)
                 item = filter(lambda x: x["data"]["title"].lower() == art["title"].lower(), items)[0]
 
             logging.debug("Link: " + metadata["title"] + " to " + art["title"])
-            url = "http://zotero.org/groups/{}/items/{}" % (item["library"]["id"], item["data"]["key"])
+            url = "http://zotero.org/groups/{}/items/{}".format(item["library"]["id"], item["data"]["key"])
             refs.append(url)
         template["relations"] = {'dc:relation': refs}
         response = zot.create_items([template])
