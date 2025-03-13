@@ -1,5 +1,5 @@
 LOCAL_DB
-run.sh
+#run.sh
 .env
 .DS_Store
 __pycache__/
