@@ -1,4 +1,8 @@
 from typing import OrderedDict
+import logging
+import time
+import random
+from collections import defaultdict
 
 from semanticscholar import SemanticScholar
 
@@ -10,18 +14,23 @@ def retrieve_info(article, zot):
     template['title'] = article["title"]
     template["__bad_authors"] = True
     authors = OrderedDict((au.strip(),None) for au in article["authors"].split(";"))
-    template['creators'] = [{'creatorType': 'author', 'firstName': au.split(" ")[0] , 'lastName': au.split(" ")[1]} for au in authors.keys()]
+    template['creators'] = [{'creatorType': 'author', 'firstName': au.split(" ")[0] , 'lastName': au.split(" ")[-1]} for au in authors.keys()]
     template['date'] = article["year"]
     # template["publisher"] = article["journal"]
     template["conferenceName"] = article["journal"]
     template["proceedingsTitle"] = article["journal"]
 
-    results = sch.search_paper(article["title"], limit=5)
+    try:
+        time.sleep(random.random()/2)
+        results = sch.search_paper(article["title"], limit=1)
+    except Exception as e:
+        logging.warning(article["title"] + " parsing by sscholar: " + str(e))
+        return template
+
     if len(results) == 0:
         return template
     best_res = results[0]
-    for i in results:
-        if i["externalIds"].get("DOI"): best_res = i
+    logging.debug("Get result from semantic scholar:\n" + str(best_res))
     
     template['abstractNote'] = best_res["abstract"]
     template["date"] = best_res["publicationDate"]
@@ -32,18 +41,21 @@ def retrieve_info(article, zot):
     template['DOI'] = best_res["externalIds"].get("DOI", "")
     template['archive'] = best_res["externalIds"].get("ArXiv", "")
     template['archiveLocation'] = "https://arxiv.org/pdf/" + best_res["externalIds"].get("ArXiv", "") + ".pdf"
-    template['url'] = "https://arxiv.org/pdf/" + best_res["externalIds"].get("ArXiv", "") + ".pdf"
+    template['url'] = template['archiveLocation']
     if not template['archive']:
-        template['url'] = best_res["publicationVenue"].get("url", "")
+        #template['url'] = best_res["publicationVenue"].get("url", "")
+        template['url'] = best_res["url"]
 
     # best_res[publicationTypes] = ['JournalArticle', 'Conference']
-    template['libraryCatalog'] = ", ".join(best_res["fieldsOfStudy"])
-    template['creators'] = [{'creatorType': 'author', 'firstName': au["name"].split(" ")[0] , 'lastName': au["name"].split(" ")[1]} for au in best_res["authors"]]
-
-    template['extra'] = "" + \
-        "pub_urls:\n" + \
-        " - public:" + best_res["publicationVenue"].get("url") + "\n" + \
+    try:
+        template['libraryCatalog'] = ", ".join(best_res["fieldsOfStudy"])
+        template['creators'] = [{'creatorType': 'author', 'firstName': au["name"].split(" ")[0] , 'lastName': au["name"].split(" ")[1]} for au in best_res["authors"]]
+    except:
+        pass
+    
+    template['extra'] = "pub_urls:\n" + \
+        " - public:" + best_res["publicationVenue"].get("url","") + "\n" + \
         " - semantic-sch: " + best_res["url"] + "\n" + \
-        "DBLP-ID: " + best_res["externalIds"].get("DBLP") + "\n" + \
-        "citations: " + best_res["citationCount"] + " till " + time.strftime("%Y-%m-%d", time.localtime()) + "\n"
+        "DBLP-ID: " + best_res["externalIds"].get("DBLP","") + "\n" + \
+        "citations: " + str(best_res["citationCount"]) + " till " + time.strftime("%Y-%m-%d", time.localtime()) + "\n"
     return template

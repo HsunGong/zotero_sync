@@ -1,0 +1,56 @@
+name: Run GROBID and Store LOCAL_DB
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 每天 UTC 03:00 运行（可修改）
+  workflow_dispatch:  # 允许手动触发
+  push:
+    branches:
+      - main  # 仅在 main 分支 push 时触发
+
+jobs:
+  run_grobid:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v3
+
+      - name: Checkout LOCAL_DB branch
+        run: |
+          git clone --single-branch --branch local_db_branch https://github.com/${{ github.repository }}.git local_db
+          cd local_db
+          if [ ! -f LOCAL_DB ]; then
+            echo "" > LOCAL_DB  # 如果文件不存在，创建空文件
+          fi
+
+      - name: Set environment variables
+        run: |
+          echo "GROBID_URLS=https://qingxu98-grobid.hf.space,https://qingxu98-grobid2.hf.space,https://qingxu98-grobid3.hf.space,https://qingxu98-grobid4.hf.space,https://qingxu98-grobid5.hf.space,https://qingxu98-grobid6.hf.space,https://qingxu98-grobid7.hf.space,https://qingxu98-grobid8.hf.space" >> $GITHUB_ENV
+          echo "SAVE_ROOT=../Papers" >> $GITHUB_ENV
+          echo "ZOTERO_KEY=koz1F8Ij0ROWBghnRtejd4e8" >> $GITHUB_ENV
+          echo "GROUP_ID=5262725" >> $GITHUB_ENV
+          echo "USER_ID=" >> $GITHUB_ENV
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt  # 确保 main.py 运行所需的包
+
+      - name: Run main.py
+        run: python /root/www/papers/arxiv/main.py
+
+      - name: Move LOCAL_DB to the branch
+        run: |
+          mv /root/www/papers/arxiv/LOCAL_DB local_db/LOCAL_DB
+          cd local_db
+          git config --local user.name "github-actions"
+          git config --local user.email "github-actions@github.com"
+          git add LOCAL_DB
+          git commit --allow-empty -m "Update LOCAL_DB"
+          git branch -M local_db_branch
+          git push --force origin local_db_branch  # 强制 push，使其成为唯一 commit
